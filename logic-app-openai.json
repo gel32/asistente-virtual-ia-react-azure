@@ -1,0 +1,100 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "Webhook_Mensaje_Entrante": {
+        "type": "Request",
+        "kind": "Http",
+        "inputs": {
+          "method": "POST",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "sender": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "timestamp": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "actions": {
+      "Crea_una_finalización_para_el_mensaje_de_chat": {
+        "runAfter": {},
+        "type": "ApiConnection",
+        "inputs": {
+          "host": {
+            "connection": {
+              "name": "@parameters('$connections')['azureopenai']['connectionId']"
+            }
+          },
+          "method": "post",
+          "body": {
+            "messages": [
+              {
+                "role": "system",
+                "content": "Eres Emma, la asistente virtual experta de INGE!. Tu objetivo es ayudar a los usuarios a navegar por el Portal de www.inge.cl, resolver dudas frecuentes sobre la gestión de garantías y dar soporte de primer nivel.\n\nTUS REGLAS ESTRICTAS:\n\nResponde SIEMPRE de forma amable, profesional y concisa.\n\nSi el usuario te pregunta por productos específicos o un requerimiento comercial complejo, sugiérele cordialmente presionar el botón \"Hablar con un Ejecutivo\" que está en la interfaz del chat.\n\nNunca inventes información que no conozcas. Si no sabes algo, discúlpate y deriva al ejecutivo.\n\nTu idioma de respuesta es siempre el español."
+              },
+              {
+                "role": "user",
+                "content": "@triggerBody()?['text']"
+              }
+            ]
+          },
+          "path": "/2024-02-15-preview/deployments/@{encodeURIComponent('modelo-emma-chatbot')}/chat/completions",
+          "queries": {
+            "api-version": "2023-05-15"
+          }
+        }
+      },
+      "Response": {
+        "runAfter": {
+          "Crea_una_finalización_para_el_mensaje_de_chat": [
+            "Succeeded"
+          ]
+        },
+        "type": "Response",
+        "kind": "Http",
+        "inputs": {
+          "statusCode": 200,
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "reply": "@{body('Crea_una_finalización_para_el_mensaje_de_chat')?['choices']?[0]?['message']?['content']}"
+          }
+        }
+      }
+    },
+    "outputs": {},
+    "parameters": {
+      "$connections": {
+        "type": "Object",
+        "defaultValue": {}
+      }
+    }
+  },
+  "parameters": {
+    "$connections": {
+      "type": "Object",
+      "value": {
+        "azureopenai": {
+          "id": "/subscriptions/<TU_SUBSCRIPTION_ID>/providers/Microsoft.Web/locations/eastus2/managedApis/azureopenai",
+          "connectionId": "/subscriptions/<TU_SUBSCRIPTION_ID>/resourceGroups/<TU_RESOURCE_GROUP>/providers/Microsoft.Web/connections/azureopenai",
+          "connectionName": "azureopenai",
+          "connectionProperties": {}
+        }
+      }
+    }
+  }
+}
